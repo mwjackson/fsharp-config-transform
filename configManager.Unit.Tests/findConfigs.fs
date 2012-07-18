@@ -50,3 +50,23 @@ type ``reading yaml files`` ()=
         let token1 = yamlConfig.[new YamlScalar("token1")] :?> YamlMapping in 
         let env3 = token1.[new YamlScalar("env3")] :?> YamlScalar in 
         env3.Value |> should equal "value3"
+
+open System.Text.RegularExpressions
+
+type sunshineConfig ()=
+    member this.swapTokens master tokens env =
+        let regex = new Regex(@"\$\$(\w+)\$\$")
+        regex.Replace (master, new MatchEvaluator(this.matchEvaluator))
+    member this.matchEvaluator (regexMatch : Match) =
+        "value3"
+
+[<TestFixture>] 
+type ``substituting tokens`` ()=
+    let yamlReader = new yamlReader()
+    let tokens = yamlReader.read("./testFiles/config.yaml")
+    let sunshineConfig = new sunshineConfig()
+    [<Test>] member test.
+        ``finding a token should replace it from the sunshineMapping`` ()=
+        let masterConfig = "<add name=\"Sunshine\" connectionString=\"$$token2$$\"/>" in
+        let swappedConfig = sunshineConfig.swapTokens masterConfig tokens "env3" in
+        swappedConfig |> should equal "<add name=\"Sunshine\" connectionString=\"value3\"/>"
