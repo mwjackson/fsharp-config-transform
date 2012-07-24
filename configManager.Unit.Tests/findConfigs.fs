@@ -32,24 +32,50 @@ type ``finding config files`` ()=
         configManager.findConfigs "." |> should contain @".\testFiles\global.tokens"
 
 open System.Yaml
+open System.Collections.Generic
+
+type token = {
+    name : string
+    envs : seq<(string * string)>
+    }
 
 type yamlReader() =
     member this.read file =
         Seq.ofArray<YamlNode>(YamlNode.FromYamlFile(file)) 
         |> Seq.head<YamlNode> :?> YamlMapping
+    member this.toTokens (yamlDoc : YamlMapping) =
+        seq { 
+            for configSetting in yamlDoc.Keys do
+            yield { 
+                name = (configSetting :?> YamlScalar).Value; 
+                envs = seq { 
+                    for token in yamlDoc.[configSetting] :?> YamlMapping do
+                        let env = (token.Key :?> YamlScalar).Value
+                        let value = (token.Value :?> YamlScalar).Value
+                        yield (env, value)
+                } 
+            } 
+        }   
 
 [<TestFixture>] 
-type ``reading yaml files`` ()=
+module ``reading yaml files`` =
     let yamlReader = new yamlReader()
     let yamlConfig = yamlReader.read("./testFiles/config.yaml")
-    [<Test>] member test.
-        ``should parse root property of a yaml file`` ()=
+
+    [<Test>] 
+    let ``should parse root property of a yaml file`` ()=
         yamlConfig.ContainsKey(new YamlScalar("token1")) |> should equal true
-    [<Test>] member test.
-        ``should parse nested propery of a yaml file`` ()=
-        let token1 = yamlConfig.[new YamlScalar("token1")] :?> YamlMapping in 
-        let env3 = token1.[new YamlScalar("env3")] :?> YamlScalar in 
+    [<Test>] 
+    let ``should parse nested propery of a yaml file`` ()=
+        let token1 = yamlConfig.[new YamlScalar("token1")] :?> YamlMapping
+        let env3 = token1.[new YamlScalar("env3")] :?> YamlScalar
         env3.Value |> should equal "value3"
+    [<Test>] 
+    let ``should convert yamldocument to digestable format`` ()=
+        let tokens = yamlReader.toTokens yamlConfig
+        let firstToken = (Seq.head tokens)
+        firstToken.name |> should equal "token2"
+        Seq.head(firstToken.envs) |> snd |> should equal "value2"
 
 open System.Text.RegularExpressions
 
@@ -57,7 +83,8 @@ type sunshineConfig ()=
     member this.swapTokens master tokens env =
         let regex = new Regex(@"\$\$(\w+)\$\$")
         regex.Replace (master, new MatchEvaluator(this.matchEvaluator))
-    member this.matchEvaluator (regexMatch : Match) =
+    member this.matchEvaluator (tokenMatch : Match) =
+        let value = tokenMatch.Groups.[0].Value
         "value3"
 
 [<TestFixture>] 
