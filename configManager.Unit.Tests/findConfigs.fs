@@ -12,39 +12,57 @@ module Util =
         Console.WriteLine ( typeof<obj>.ToString  )
         obj
 
-type configManager() =
-    member this.findConfigs dir = 
-        let configs = Directory.GetFiles(dir, "*.config", SearchOption.AllDirectories)
-        let tokens = Directory.GetFiles(dir, "global.tokens", SearchOption.AllDirectories)
-        Array.append configs tokens
+module configManager =
 
-[<TestFixture>] 
-module ``finding config files`` =
-    let configManager = new configManager()
-
-    [<Test>] 
-    let ``should find tokens file`` ()=
-        configManager.findConfigs "." |> should contain @".\testFiles\test.tokens.config"
-    [<Test>] 
-    let ``should find master file`` ()=
-        configManager.findConfigs "." |> should contain @".\testFiles\test.master.config"
-    [<Test>] 
-    let ``should find global tokens file`` ()=
-        configManager.findConfigs "." |> should contain @".\testFiles\global.tokens"
-
-open System.Yaml
-open System.Collections.Generic
-
-type token = {
-    name : string
-    envs : (string * string) list
+    type applicationConfig = {
+        globalTokens: string
+        appTokens: string
+        masterConfig: string
     }
 
-type yamlReader() =
-    member this.read file =
+    let findConfigs dir = 
+        let globalTokens = Directory.GetFiles(dir, "global.tokens", SearchOption.AllDirectories).[0]
+        let directories = Directory.GetDirectories(dir, "*", SearchOption.AllDirectories)
+        [
+            for directory in directories do
+            let masterConfigs = Directory.GetFiles(directory, "*.master.config", SearchOption.TopDirectoryOnly)
+            let appTokens = Directory.GetFiles(directory, "*.tokens.config", SearchOption.TopDirectoryOnly)
+            if (masterConfigs.Length = 1 && appTokens.Length = 1) then
+                yield {
+                    globalTokens = globalTokens
+                    appTokens = appTokens.[0]
+                    masterConfig = masterConfigs.[0]
+                }
+        ]
+
+    [<TestFixture>] 
+    module ``finding config files`` =
+        [<Test>] 
+        let ``should find tokens file`` ()=
+            let applicationConfig = findConfigs "." |> List.head
+            applicationConfig.appTokens |> should equal @".\testFiles\test.tokens.config"
+        [<Test>] 
+        let ``should find master file`` ()=
+            let applicationConfig = findConfigs "." |> List.head
+            applicationConfig.masterConfig |> should equal @".\testFiles\test.master.config"
+        [<Test>] 
+        let ``should find global tokens file`` ()=
+            let applicationConfig = findConfigs "." |> List.head
+            applicationConfig.globalTokens |> should equal @".\testFiles\global.tokens"
+
+    open System.Yaml
+    open System.Collections.Generic
+
+    type token = {
+        name : string
+        envs : (string * string) list
+        }
+
+    let read file =
         List.ofArray<YamlNode>(YamlNode.FromYamlFile(file)) 
         |> List.head<YamlNode> :?> YamlMapping
-    member this.toTokens (yamlDoc : YamlMapping) =
+
+    let toTokens (yamlDoc : YamlMapping) =
         [
             for configSetting in yamlDoc.Keys do
             yield { 
@@ -58,53 +76,51 @@ type yamlReader() =
                 ]
             } 
         ]
-    member this.lookup (tokens:token list) (token:string) (env:string) =
-        let tokenValues = tokens |> List.find(fun (t : token) -> t.name = token)
-        tokenValues.envs |> List.find(fun (e : (string * string)) -> (fst e) = env) |> snd
 
-[<TestFixture>] 
-module ``reading yaml files`` =
-    let yamlReader = new yamlReader()
-    let yamlConfig = yamlReader.read("./testFiles/config.yaml")
+    let lookup (tokens:token list) (token:string) (env:string) =
+            let tokenValues = tokens |> List.find(fun (t : token) -> t.name = token)
+            tokenValues.envs |> List.find(fun (e : (string * string)) -> (fst e) = env) |> snd
 
-    [<Test>] 
-    let ``should parse root property of a yaml file`` ()=
-        yamlConfig.ContainsKey(new YamlScalar("token1")) |> should equal true
-    [<Test>] 
-    let ``should parse nested propery of a yaml file`` ()=
-        let token1 = yamlConfig.[new YamlScalar("token1")] :?> YamlMapping
-        let env3 = token1.[new YamlScalar("env3")] :?> YamlScalar
-        env3.Value |> should equal "value3"
-    [<Test>]
-    let ``should convert yamldocument to digestable format`` ()=
-        let tokens = yamlReader.toTokens yamlConfig
-        let firstToken = (Seq.head tokens)
-        firstToken.name |> should equal "token2"
-        Seq.head(firstToken.envs) |> snd |> should equal "value2"
-    [<Test>]
-    let ``should be able to look up token easily`` () =
-        let tokens = yamlReader.toTokens yamlConfig
-        let tokenValue = yamlReader.lookup tokens "token2" "env3"
-        tokenValue |> should equal "value3"
+    [<TestFixture>] 
+    module ``reading yaml files`` =
+        let yamlConfig = read("./testFiles/config.yaml")
 
-open System.Text.RegularExpressions
+        [<Test>] 
+        let ``should parse root property of a yaml file`` ()=
+            yamlConfig.ContainsKey(new YamlScalar("token1")) |> should equal true
+        [<Test>] 
+        let ``should parse nested propery of a yaml file`` ()=
+            let token1 = yamlConfig.[new YamlScalar("token1")] :?> YamlMapping
+            let env3 = token1.[new YamlScalar("env3")] :?> YamlScalar
+            env3.Value |> should equal "value3"
+        [<Test>]
+        let ``should convert yamldocument to digestable format`` ()=
+            let tokens = toTokens yamlConfig
+            let firstToken = (Seq.head tokens)
+            firstToken.name |> should equal "token2"
+            Seq.head(firstToken.envs) |> snd |> should equal "value2"
+        [<Test>]
+        let ``should be able to look up token easily`` () =
+            let tokens = toTokens yamlConfig
+            let tokenValue = lookup tokens "token2" "env3"
+            tokenValue |> should equal "value3"
 
-type sunshineConfig ()=
-    member this.swapTokens master tokens env =
+    open System.Text.RegularExpressions
+
+    let matchEvaluator (tokenMatch : Match) (tokens : token list) (env : string) =
+        let token = tokenMatch.Groups.[1].Value
+        lookup tokens token env
+
+    let swapTokens master tokens env =
         let regex = new Regex(@"\$\$(\w+)\$\$")
-        regex.Replace (master, new MatchEvaluator(this.matchEvaluator))
-    member this.matchEvaluator (tokenMatch : Match) =
-        let value = tokenMatch.Groups.[0].Value
-        "value3"
+        regex.Replace (master, new MatchEvaluator(fun (tokenMatch : Match) -> matchEvaluator tokenMatch tokens env))
 
-[<TestFixture>] 
-module ``substituting tokens`` =
-    let yamlReader = new yamlReader()
-    let tokens = yamlReader.read("./testFiles/config.yaml")
-    let sunshineConfig = new sunshineConfig()
+    [<TestFixture>] 
+    module ``substituting tokens`` =
+        let tokens = toTokens(read("./testFiles/config.yaml"))
 
-    [<Test>] [<Ignore("pending")>]
-    let ``finding a token should replace it from the sunshineMapping`` ()=
-        let masterConfig = "<add name=\"Sunshine\" connectionString=\"$$token2$$\"/>" 
-        let swappedConfig = sunshineConfig.swapTokens masterConfig tokens "env3" 
-        swappedConfig |> should equal "<add name=\"Sunshine\" connectionString=\"value3\"/>"
+        [<Test>]
+        let ``finding a token should replace it from the sunshineMapping`` ()=
+            let masterConfig = "<add name=\"Sunshine\" connectionString=\"$$token2$$\"/>" 
+            let swappedConfig = swapTokens masterConfig tokens "env3" 
+            swappedConfig |> should equal "<add name=\"Sunshine\" connectionString=\"value3\"/>"
