@@ -4,6 +4,6 @@ token1:
   env3: value3
   
 token2:
-  env1: value1
-  env2: value2
-  env3: value3
+  env1: value4
+  env2: value5
+  env3: value6

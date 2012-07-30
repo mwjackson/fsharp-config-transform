@@ -40,10 +40,13 @@
     <None Include="testFiles\global.tokens">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="testFiles\test.master.config">
+    <None Include="testFiles\expectedOutput.config">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="testFiles\test.tokens.config">
+    <None Include="testFiles\projectA\test.master.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="testFiles\projectA\test.tokens.config">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <Compile Include="findConfigs.fs" />
@@ -66,8 +69,6 @@
       <HintPath>..\configManager\packages\YamlSerializer.1.0\lib\Net35\YamlSerializer.dll</HintPath>
       <Private>True</Private>
     </Reference>
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\configManager\configManager.fsproj">
       <Name>configManager</Name>
       <Project>{eccde407-dcfd-471f-850e-4a2f1e78e7d8}</Project>

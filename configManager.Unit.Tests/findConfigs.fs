@@ -40,11 +40,11 @@ module configManager =
         [<Test>] 
         let ``should find tokens file`` ()=
             let applicationConfig = findConfigs "." |> List.head
-            applicationConfig.appTokens |> should equal @".\testFiles\test.tokens.config"
+            applicationConfig.appTokens |> should equal @".\testFiles\projectA\test.tokens.config"
         [<Test>] 
         let ``should find master file`` ()=
             let applicationConfig = findConfigs "." |> List.head
-            applicationConfig.masterConfig |> should equal @".\testFiles\test.master.config"
+            applicationConfig.masterConfig |> should equal @".\testFiles\projectA\test.master.config"
         [<Test>] 
         let ``should find global tokens file`` ()=
             let applicationConfig = findConfigs "." |> List.head
@@ -98,12 +98,12 @@ module configManager =
             let tokens = toTokens yamlConfig
             let firstToken = (Seq.head tokens)
             firstToken.name |> should equal "token2"
-            Seq.head(firstToken.envs) |> snd |> should equal "value2"
+            Seq.head(firstToken.envs) |> snd |> should equal "value5"
         [<Test>]
         let ``should be able to look up token easily`` () =
             let tokens = toTokens yamlConfig
             let tokenValue = lookup tokens "token2" "env3"
-            tokenValue |> should equal "value3"
+            tokenValue |> should equal "value6"
 
     open System.Text.RegularExpressions
 
@@ -117,10 +117,36 @@ module configManager =
 
     [<TestFixture>] 
     module ``substituting tokens`` =
-        let tokens = toTokens(read("./testFiles/config.yaml"))
+        let tokens = read("./testFiles/config.yaml") |> toTokens
 
         [<Test>]
         let ``finding a token should replace it from the sunshineMapping`` ()=
             let masterConfig = "<add name=\"Sunshine\" connectionString=\"$$token2$$\"/>" 
             let swappedConfig = swapTokens masterConfig tokens "env3" 
-            swappedConfig |> should equal "<add name=\"Sunshine\" connectionString=\"value3\"/>"
+            swappedConfig |> should equal "<add name=\"Sunshine\" connectionString=\"value6\"/>"
+
+    let generateFor (env : string) (appConfig : applicationConfig) =
+        let tokens = read appConfig.appTokens |> toTokens
+        let master = File.ReadAllText appConfig.masterConfig
+        let outputFile = appConfig.masterConfig.Replace(".master", "")
+        let swappedConfig = swapTokens master tokens env
+        File.WriteAllText(outputFile, swappedConfig)
+
+    let findAndGenerateFor dir env =
+        let curriedGenerator = generateFor env
+        findConfigs dir |> List.iter curriedGenerator       
+
+    [<TestFixture>] 
+    module ``end to end`` =
+        let expectedConfig = File.ReadAllText("./testFiles/expectedOutput.config")
+        let expectedOutputFile = "./testFiles/projectA/test.config"
+        [<Test>]
+        let ``generating config should swap tokens in the entire file`` ()=
+            if (File.Exists expectedOutputFile) then
+                File.Delete expectedOutputFile
+
+            findAndGenerateFor "./testFiles" "env2"
+            
+            let actualConfig = File.ReadAllText expectedOutputFile
+            Console.WriteLine (actualConfig)
+            actualConfig |> should equal expectedConfig
