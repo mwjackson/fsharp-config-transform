@@ -78,8 +78,10 @@ module configManager =
         ]
 
     let lookup (tokens:token list) (token:string) (env:string) =
-            let tokenValues = tokens |> List.find(fun (t : token) -> t.name = token)
-            tokenValues.envs |> List.find(fun (e : (string * string)) -> (fst e) = env) |> snd
+        let tokenValues = tokens |> List.tryFind(fun (t : token) -> t.name = token)
+        match tokenValues with
+        | None -> "$$" + token + "$$"
+        | Some token -> token.envs |> List.find(fun (e : (string * string)) -> (fst e) = env) |> snd
 
     [<TestFixture>] 
     module ``reading yaml files`` =
@@ -107,13 +109,28 @@ module configManager =
 
     open System.Text.RegularExpressions
 
+    type MissingTokensException (message)=
+        inherit Exception(message)
+
     let matchEvaluator (tokenMatch : Match) (tokens : token list) (env : string) =
         let token = tokenMatch.Groups.[1].Value
         lookup tokens token env
 
+    let throwMissingTokens (tokensRemaining : MatchCollection) (env : string) =
+        let missingTokens = tokensRemaining |> Seq.cast |> Seq.map (fun (mtch : Match) -> mtch.Groups.[0].Value) |> Array.ofSeq
+        let message = String.Format("Cannot generate config file - tokens missing! {0} Environment: {1} {0} Tokens: {0} {2}", 
+                        Environment.NewLine, 
+                        env, 
+                        String.Join(Environment.NewLine, missingTokens))
+        raise (new MissingTokensException(message))
+
     let swapTokens master tokens env =
         let regex = new Regex(@"\$\$(\w+)\$\$")
-        regex.Replace (master, new MatchEvaluator(fun (tokenMatch : Match) -> matchEvaluator tokenMatch tokens env))
+        let swappedConfig = regex.Replace (master, new MatchEvaluator(fun (tokenMatch : Match) -> matchEvaluator tokenMatch tokens env))
+        let tokensRemaining = (regex.Matches swappedConfig)
+        if (tokensRemaining.Count > 0) then
+            throwMissingTokens tokensRemaining env
+        swappedConfig
 
     [<TestFixture>] 
     module ``substituting tokens`` =
@@ -125,6 +142,11 @@ module configManager =
             let swappedConfig = swapTokens masterConfig tokens "env3" 
             swappedConfig |> should equal "<add name=\"Sunshine\" connectionString=\"value6\"/>"
 
+        [<Test>]
+        let ``if there are any tokens left over there should be an error`` ()=
+            let masterConfig = "<add name=\"Sunshine\" connectionString=\"$$token5$$\"/>" 
+            (fun () -> swapTokens masterConfig tokens "env3" |> ignore) |> should throw typeof<MissingTokensException>
+
     let generateFor (env : string) (appConfig : applicationConfig) =
         let tokens = read appConfig.appTokens |> toTokens
         let master = File.ReadAllText appConfig.masterConfig
@@ -133,8 +155,7 @@ module configManager =
         File.WriteAllText(outputFile, swappedConfig)
 
     let findAndGenerateFor dir env =
-        let curriedGenerator = generateFor env
-        findConfigs dir |> List.iter curriedGenerator       
+        findConfigs dir |> List.iter (generateFor env)
 
     [<TestFixture>] 
     module ``end to end`` =
