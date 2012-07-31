@@ -53,9 +53,12 @@ module configManager =
     open System.Yaml
     open System.Collections.Generic
 
+    type MissingTokensException (message)=
+        inherit Exception(message)
+
     type token = {
         name : string
-        envs : (string * string) list
+        envs : Map<string, string>
         }
 
     let read file =
@@ -67,21 +70,25 @@ module configManager =
             for configSetting in yamlDoc.Keys do
             yield { 
                 name = (configSetting :?> YamlScalar).Value; 
-                envs = 
-                [
-                    for token in yamlDoc.[configSetting] :?> YamlMapping do
-                        let env = (token.Key :?> YamlScalar).Value
-                        let value = (token.Value :?> YamlScalar).Value
-                        yield (env, value)
-                ]
+                envs = yamlDoc.[configSetting] :?> YamlMapping 
+                        |> Seq.map (fun token -> ((token.Key :?> YamlScalar).Value, (token.Value :?> YamlScalar).Value)) 
+                        |> Map.ofSeq
             } 
         ]
+
+    let lookupValue env envs token =
+        if (Map.containsKey env envs) then
+            Map.find env envs
+        else if (Map.containsKey "default" envs) then
+            Map.find "default" envs
+        else 
+            "$$" + token + "$$"
 
     let lookup (tokens:token list) (token:string) (env:string) =
         let tokenValues = tokens |> List.tryFind(fun (t : token) -> t.name = token)
         match tokenValues with
         | None -> "$$" + token + "$$"
-        | Some token -> token.envs |> List.find(fun (e : (string * string)) -> (fst e) = env) |> snd
+        | Some tok -> lookupValue env tok.envs token
 
     [<TestFixture>] 
     module ``reading yaml files`` =
@@ -100,17 +107,20 @@ module configManager =
             let tokens = toTokens yamlConfig
             let firstToken = (Seq.head tokens)
             firstToken.name |> should equal "token2"
-            Seq.head(firstToken.envs) |> snd |> should equal "value5"
+            firstToken.envs |> Map.find "env2" |> should equal "value5"
         [<Test>]
         let ``should be able to look up token easily`` () =
             let tokens = toTokens yamlConfig
             let tokenValue = lookup tokens "token2" "env3"
             tokenValue |> should equal "value6"
+        [<Test>]
+        let ``looking up token should default when environment not found`` () =
+            let tokens = toTokens yamlConfig
+            let tokenValue = lookup tokens "token1" "anotherEnv"
+            tokenValue |> should equal "defaultValue"
 
     open System.Text.RegularExpressions
 
-    type MissingTokensException (message)=
-        inherit Exception(message)
 
     let matchEvaluator (tokenMatch : Match) (tokens : token list) (env : string) =
         let token = tokenMatch.Groups.[1].Value
