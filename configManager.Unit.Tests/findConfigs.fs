@@ -7,11 +7,6 @@ open configManager
 open NUnit.Framework
 open FsUnit
 
-module Util =
-    let printReturn (obj) =
-        Console.WriteLine ( typeof<obj>.ToString  )
-        obj
-
 module configManager =
 
     type applicationConfig = {
@@ -21,7 +16,9 @@ module configManager =
     }
 
     let findConfigs dir = 
-        let globalTokens = Directory.GetFiles(dir, "global.tokens", SearchOption.AllDirectories).[0]
+        let globalTokens = Directory.GetFiles(dir, "global.tokens", SearchOption.AllDirectories)
+        if (globalTokens.Length = 0) then
+            raise (new ArgumentException(String.Format("Could not find any global.tokens file in: {0}{1}", Environment.NewLine, dir)))
         let directories = Directory.GetDirectories(dir, "*", SearchOption.AllDirectories)
         [
             for directory in directories do
@@ -29,7 +26,7 @@ module configManager =
             let appTokens = Directory.GetFiles(directory, "*.tokens.config", SearchOption.TopDirectoryOnly)
             if (masterConfigs.Length = 1 && appTokens.Length = 1) then
                 yield {
-                    globalTokens = globalTokens
+                    globalTokens = globalTokens.[0]
                     appTokens = appTokens.[0]
                     masterConfig = masterConfigs.[0]
                 }
@@ -49,6 +46,9 @@ module configManager =
         let ``should find global tokens file`` ()=
             let applicationConfig = findConfigs "." |> List.head
             applicationConfig.globalTokens |> should equal @".\testFiles\global.tokens"
+        [<Test>] 
+        let ``missing global tokens file should report an error`` ()=
+            (fun () -> findConfigs @"c:\temp" |> ignore) |> should throw typeof<ArgumentException>
 
     open System.Yaml
     open System.Collections.Generic
