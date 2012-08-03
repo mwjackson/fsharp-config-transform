@@ -2,13 +2,11 @@
 
 open System
 open System.IO
-
-open configManager
-open NUnit.Framework
-open FsUnit
-
 open System.Yaml
 open System.Collections.Generic
+
+open NUnit.Framework
+open FsUnit
 
 module tokens =
 
@@ -37,16 +35,16 @@ module tokens =
 
     let lookupValue env envs token =
         if (Map.containsKey env envs) then
-            Map.find env envs
+            Map.tryFind env envs
         else if (Map.containsKey "default" envs) then
-            Map.find "default" envs
+            Map.tryFind "default" envs
         else 
-            "$$" + token + "$$"
+            None
 
     let lookup (tokens:token list) (token:string) (env:string) =
         let tokenValues = tokens |> List.tryFind(fun (t : token) -> t.name = token)
         match tokenValues with
-        | None -> "$$" + token + "$$"
+        | None -> None
         | Some tok -> lookupValue env tok.envs token
 
     [<TestFixture>] 
@@ -57,7 +55,7 @@ module tokens =
         let ``should parse root property of a yaml file`` ()=
             yamlConfig.ContainsKey(new YamlScalar("token1")) |> should equal true
         [<Test>] 
-        let ``should parse nested propery of a yaml file`` ()=
+        let ``should parse nested property of a yaml file`` ()=
             let token1 = yamlConfig.[new YamlScalar("token1")] :?> YamlMapping
             let env3 = token1.[new YamlScalar("env3")] :?> YamlScalar
             env3.Value |> should equal "value3"
@@ -71,10 +69,10 @@ module tokens =
         let ``should be able to look up token easily`` () =
             let tokens = toTokens yamlConfig
             let tokenValue = lookup tokens "token2" "env3"
-            tokenValue |> should equal "value6"
+            tokenValue.Value |> should equal "value6"
         [<Test>]
         let ``looking up token should default when environment not found`` () =
             let tokens = toTokens yamlConfig
             let tokenValue = lookup tokens "token1" "anotherEnv"
-            tokenValue |> should equal "defaultValue"
+            tokenValue.Value |> should equal "defaultValue"
 

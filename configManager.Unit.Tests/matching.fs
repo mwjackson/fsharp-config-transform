@@ -1,11 +1,10 @@
 ﻿namespace configManager
 
 open System
+open System.Text.RegularExpressions
 
 open NUnit.Framework
 open FsUnit
-
-open System.Text.RegularExpressions
 
 open configManager.tokens
 
@@ -13,7 +12,10 @@ module matching =
 
     let matchEvaluator (tokenMatch : Match) (tokens : token list) (env : string) =
         let token = tokenMatch.Groups.[1].Value
-        lookup tokens token env
+        let potentialValue = lookup tokens token env
+        match potentialValue with
+        | None -> "$$" + token + "$$"
+        | Some value -> value
 
     let throwMissingTokens (tokensRemaining : MatchCollection) (env : string) =
         let missingTokens = tokensRemaining |> Seq.cast |> Seq.map (fun (mtch : Match) -> mtch.Groups.[0].Value) |> Array.ofSeq

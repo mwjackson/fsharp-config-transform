@@ -12,15 +12,15 @@ open configManager.matching
 
 module configure =
 
-    let generateFor (env : string) (appConfig : applicationConfig) =
+    let configureFor (env : string) (appConfig : applicationConfig) =
         let tokens = read appConfig.appTokens |> toTokens
         let master = File.ReadAllText appConfig.masterConfig
         let outputFile = appConfig.masterConfig.Replace(".master", "")
         let swappedConfig = swapTokens master tokens env
         File.WriteAllText(outputFile, swappedConfig)
 
-    let findAndGenerateFor dir env =
-        searchForConfigs dir |> List.iter (generateFor env)
+    let configureSolutionFor solutionDir environment =
+        searchForConfigs solutionDir |> List.iter (configureFor environment)
 
     [<TestFixture>] 
     module ``end to end`` =
@@ -32,7 +32,7 @@ module configure =
             if (File.Exists expectedOutputFile) then
                 File.Delete expectedOutputFile
 
-            findAndGenerateFor "./testFiles" "env2"
+            configureSolutionFor "./testFiles" "env2"
             
             let actualConfig = File.ReadAllText expectedOutputFile
             Console.WriteLine (actualConfig)

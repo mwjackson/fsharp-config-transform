@@ -55,7 +55,7 @@ module configs =
         [<Test>] 
         let ``searching a directory should return a tuple of master and tokens`` ()=
             let configFiles = findConfigsInDir @".\testFiles\projectA"
-            configFiles |> should equal (Some (@".\testFiles\projectA\test.master.config", @".\testFiles\projectA\test.tokens.config"))
+            configFiles.Value |> should equal (@".\testFiles\projectA\test.master.config", @".\testFiles\projectA\test.tokens.config")
         [<Test>] 
         let ``searching a directory with no configs should return an empty tuple`` ()=
             let configFiles = findConfigsInDir @".\testFiles\projectB"
