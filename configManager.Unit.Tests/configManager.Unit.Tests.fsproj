@@ -49,8 +49,11 @@
     <None Include="testFiles\projectA\test.tokens.config">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <Compile Include="findConfigs.fs" />
     <None Include="packages.config" />
+    <Compile Include="configs.fs" />
+    <Compile Include="tokens.fs" />
+    <Compile Include="matching.fs" />
+    <Compile Include="configure.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FsUnit.NUnit">
