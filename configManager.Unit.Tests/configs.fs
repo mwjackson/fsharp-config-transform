@@ -17,10 +17,12 @@ module configs =
     let findConfigsInDir dir = 
         let masterConfigs = Directory.GetFiles(dir, "*.master.config", SearchOption.TopDirectoryOnly)
         let appTokens = Directory.GetFiles(dir, "*.tokens.config", SearchOption.TopDirectoryOnly)
-        let configs = Array.zip masterConfigs appTokens |> List.ofArray
-        match configs.Length with
-        | 0 -> None
-        | _ -> configs |> List.head |> Some
+        match (masterConfigs.Length, appTokens.Length) with
+        | (0, 0) -> None
+        | (1, 0) -> raise (new ArgumentException(String.Format("Missing Master/Token file pair in {0}", dir)))
+        | (0, 1) -> raise (new ArgumentException(String.Format("Missing Master/Token file pair in {0}", dir)))
+        | (1, 1) -> Array.zip masterConfigs appTokens |> List.ofArray |> List.head |> Some
+        | (_, _) -> raise (new ArgumentException(String.Format("Multiple Master/Token files in {0}", dir)))
 
     let searchForConfigs directory = 
         let globalTokens = Directory.GetFiles(directory, "global.tokens", SearchOption.AllDirectories)
@@ -60,3 +62,6 @@ module configs =
         let ``searching a directory with no configs should return an empty tuple`` ()=
             let configFiles = findConfigsInDir @".\projectB"
             configFiles |> should equal None
+        [<Test>] 
+        let ``searching a directory with missing config pair should report error`` ()=
+            (fun () -> findConfigsInDir @".\projectC\src" |> ignore) |> should throw typeof<ArgumentException>
