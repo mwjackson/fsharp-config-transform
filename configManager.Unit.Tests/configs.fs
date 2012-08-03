@@ -19,19 +19,15 @@ module configs =
         let appTokens = Directory.GetFiles(dir, "*.tokens.config", SearchOption.TopDirectoryOnly)
         let configs = Array.zip masterConfigs appTokens |> List.ofArray
         match configs.Length with
-        | 0 -> ("", "")
-        | _ -> configs |> List.head
+        | 0 -> None
+        | _ -> configs |> List.head |> Some
 
     let searchForConfigs directory = 
         let globalTokens = Directory.GetFiles(directory, "global.tokens", SearchOption.AllDirectories)
         if (globalTokens.Length = 0) then
             raise (new ArgumentException(String.Format("Could not find any global.tokens file in: {0}{1}", Environment.NewLine, directory)))
         Directory.GetDirectories(directory, "*", SearchOption.AllDirectories) |> List.ofArray
-            |> List.map (fun dir -> findConfigsInDir dir)
-            |> List.filter (fun config -> 
-                match config with
-                | ("", "") -> false
-                | (_, _) -> true)
+            |> List.choose (fun dir -> findConfigsInDir dir)
             |> List.map (fun config -> 
                 { 
                     globalTokens = globalTokens.[0];
@@ -57,6 +53,10 @@ module configs =
         let ``missing global tokens file should report an error`` ()=
             (fun () -> searchForConfigs @"c:\temp" |> ignore) |> should throw typeof<ArgumentException>
         [<Test>] 
-        let ``search a directory should return a tuple of master and tokens`` ()=
+        let ``searching a directory should return a tuple of master and tokens`` ()=
             let configFiles = findConfigsInDir @".\testFiles\projectA"
-            configFiles |> should equal (@".\testFiles\projectA\test.master.config", @".\testFiles\projectA\test.tokens.config")
+            configFiles |> should equal (Some (@".\testFiles\projectA\test.master.config", @".\testFiles\projectA\test.tokens.config"))
+        [<Test>] 
+        let ``searching a directory with no configs should return an empty tuple`` ()=
+            let configFiles = findConfigsInDir @".\testFiles\projectB"
+            configFiles |> should equal None

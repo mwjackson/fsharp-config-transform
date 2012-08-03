@@ -49,6 +49,9 @@
     <None Include="testFiles\projectA\test.tokens.config">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="testFiles\projectB\app.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="packages.config" />
     <Compile Include="configs.fs" />
     <Compile Include="tokens.fs" />
