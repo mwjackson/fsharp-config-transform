@@ -15,40 +15,52 @@ module configManager =
         masterConfig: string
     }
 
-    let findConfigs dir = 
-        let globalTokens = Directory.GetFiles(dir, "global.tokens", SearchOption.AllDirectories)
+    let findConfigsInDir dir = 
+        let masterConfigs = Directory.GetFiles(dir, "*.master.config", SearchOption.TopDirectoryOnly)
+        let appTokens = Directory.GetFiles(dir, "*.tokens.config", SearchOption.TopDirectoryOnly)
+        let configs = Array.zip masterConfigs appTokens |> List.ofArray
+        match configs.Length with
+        | 0 -> ("", "")
+        | _ -> configs |> List.head
+
+    let findAllConfigs directory = 
+        let globalTokens = Directory.GetFiles(directory, "global.tokens", SearchOption.AllDirectories)
         if (globalTokens.Length = 0) then
-            raise (new ArgumentException(String.Format("Could not find any global.tokens file in: {0}{1}", Environment.NewLine, dir)))
-        let directories = Directory.GetDirectories(dir, "*", SearchOption.AllDirectories)
-        [
-            for directory in directories do
-            let masterConfigs = Directory.GetFiles(directory, "*.master.config", SearchOption.TopDirectoryOnly)
-            let appTokens = Directory.GetFiles(directory, "*.tokens.config", SearchOption.TopDirectoryOnly)
-            if (masterConfigs.Length = 1 && appTokens.Length = 1) then
-                yield {
-                    globalTokens = globalTokens.[0]
-                    appTokens = appTokens.[0]
-                    masterConfig = masterConfigs.[0]
-                }
-        ]
+            raise (new ArgumentException(String.Format("Could not find any global.tokens file in: {0}{1}", Environment.NewLine, directory)))
+        Directory.GetDirectories(directory, "*", SearchOption.AllDirectories) |> List.ofArray
+            |> List.map (fun dir -> findConfigsInDir dir)
+            |> List.filter (fun config -> 
+                match config with
+                | ("", "") -> false
+                | (_, _) -> true)
+            |> List.map (fun config -> 
+                { 
+                    globalTokens = globalTokens.[0];
+                    masterConfig = fst config;
+                    appTokens = snd config;
+                } : applicationConfig)
 
     [<TestFixture>] 
     module ``finding config files`` =
         [<Test>] 
         let ``should find tokens file`` ()=
-            let applicationConfig = findConfigs "." |> List.head
+            let applicationConfig = findAllConfigs "." |> List.head
             applicationConfig.appTokens |> should equal @".\testFiles\projectA\test.tokens.config"
         [<Test>] 
         let ``should find master file`` ()=
-            let applicationConfig = findConfigs "." |> List.head
+            let applicationConfig = findAllConfigs "." |> List.head
             applicationConfig.masterConfig |> should equal @".\testFiles\projectA\test.master.config"
         [<Test>] 
         let ``should find global tokens file`` ()=
-            let applicationConfig = findConfigs "." |> List.head
+            let applicationConfig = findAllConfigs "." |> List.head
             applicationConfig.globalTokens |> should equal @".\testFiles\global.tokens"
         [<Test>] 
         let ``missing global tokens file should report an error`` ()=
-            (fun () -> findConfigs @"c:\temp" |> ignore) |> should throw typeof<ArgumentException>
+            (fun () -> findAllConfigs @"c:\temp" |> ignore) |> should throw typeof<ArgumentException>
+        [<Test>] 
+        let ``search a directory should return a tuple of master and tokens`` ()=
+            let configFiles = findConfigsInDir @".\testFiles\projectA"
+            configFiles |> should equal (@".\testFiles\projectA\test.master.config", @".\testFiles\projectA\test.tokens.config")
 
     open System.Yaml
     open System.Collections.Generic
@@ -121,7 +133,6 @@ module configManager =
 
     open System.Text.RegularExpressions
 
-
     let matchEvaluator (tokenMatch : Match) (tokens : token list) (env : string) =
         let token = tokenMatch.Groups.[1].Value
         lookup tokens token env
@@ -165,7 +176,7 @@ module configManager =
         File.WriteAllText(outputFile, swappedConfig)
 
     let findAndGenerateFor dir env =
-        findConfigs dir |> List.iter (generateFor env)
+        findAllConfigs dir |> List.iter (generateFor env)
 
     [<TestFixture>] 
     module ``end to end`` =
