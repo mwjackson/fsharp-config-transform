@@ -24,15 +24,15 @@ module configure =
 
     [<TestFixture>] 
     module ``end to end`` =
-        let expectedConfig = File.ReadAllText("./testFiles/expectedOutput.config")
-        let expectedOutputFile = "./testFiles/projectA/test.config"
+        let expectedConfig = File.ReadAllText("./projectA/expectedOutput.config")
+        let expectedOutputFile = "./projectA/src/test.config"
 
         [<Test>]
         let ``generating config should swap tokens in the entire file`` ()=
             if (File.Exists expectedOutputFile) then
                 File.Delete expectedOutputFile
 
-            configureSolutionFor "./testFiles" "env2"
+            configureSolutionFor "./projectA" "env2"
             
             let actualConfig = File.ReadAllText expectedOutputFile
             Console.WriteLine (actualConfig)

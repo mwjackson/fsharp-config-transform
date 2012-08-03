@@ -39,24 +39,24 @@ module configs =
     module ``finding config files`` =
         [<Test>] 
         let ``should find tokens file`` ()=
-            let applicationConfig = searchForConfigs "." |> List.head
-            applicationConfig.appTokens |> should equal @".\testFiles\projectA\test.tokens.config"
+            let applicationConfig = searchForConfigs ".\projectA" |> List.head
+            applicationConfig.appTokens |> should equal @".\projectA\src\test.tokens.config"
         [<Test>] 
         let ``should find master file`` ()=
-            let applicationConfig = searchForConfigs "." |> List.head
-            applicationConfig.masterConfig |> should equal @".\testFiles\projectA\test.master.config"
+            let applicationConfig = searchForConfigs ".\projectA" |> List.head
+            applicationConfig.masterConfig |> should equal @".\projectA\src\test.master.config"
         [<Test>] 
         let ``should find global tokens file`` ()=
-            let applicationConfig = searchForConfigs "." |> List.head
-            applicationConfig.globalTokens |> should equal @".\testFiles\global.tokens"
+            let applicationConfig = searchForConfigs ".\projectA" |> List.head
+            applicationConfig.globalTokens |> should equal @".\projectA\global.tokens"
         [<Test>] 
         let ``missing global tokens file should report an error`` ()=
             (fun () -> searchForConfigs @"c:\temp" |> ignore) |> should throw typeof<ArgumentException>
         [<Test>] 
         let ``searching a directory should return a tuple of master and tokens`` ()=
-            let configFiles = findConfigsInDir @".\testFiles\projectA"
-            configFiles.Value |> should equal (@".\testFiles\projectA\test.master.config", @".\testFiles\projectA\test.tokens.config")
+            let configFiles = findConfigsInDir @".\projectA\src"
+            configFiles.Value |> should equal (@".\projectA\src\test.master.config", @".\projectA\src\test.tokens.config")
         [<Test>] 
         let ``searching a directory with no configs should return an empty tuple`` ()=
-            let configFiles = findConfigsInDir @".\testFiles\projectB"
+            let configFiles = findConfigsInDir @".\projectB"
             configFiles |> should equal None
