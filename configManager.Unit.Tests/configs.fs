@@ -65,3 +65,6 @@ module configs =
         [<Test>] 
         let ``searching a directory with missing config pair should report error`` ()=
             (fun () -> findConfigsInDir @".\projectC\src" |> ignore) |> should throw typeof<ArgumentException>
+        [<Test>] 
+        let ``should ignore bin directories`` ()=
+            Assert.Fail("pending")

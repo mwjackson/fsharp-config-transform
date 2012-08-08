@@ -47,6 +47,9 @@ module tokens =
         | None -> None
         | Some tok -> lookupValue env tok.envs token
 
+    let combine (globalTokens : token list) (projectTokens : token list) =
+        List.concat [ globalTokens; projectTokens]
+
     [<TestFixture>] 
     module ``reading yaml files`` =
         let yamlConfig = read("./testFiles/config.yaml")
@@ -75,4 +78,14 @@ module tokens =
             let tokens = toTokens yamlConfig
             let tokenValue = lookup tokens "token1" "anotherEnv"
             tokenValue.Value |> should equal "defaultValue"
+        [<Test>]
+        let ``combining global and project tokens files should give a single collection`` () =
+            let projectTokens = read "./projectA/src/test.tokens.config" |> toTokens 
+            let globalTokens = read "./projectA/global.tokens" |> toTokens
+            let allTokens = combine globalTokens projectTokens
+            (lookup allTokens "token1" "env1").Value |> should equal "value1"
+            (lookup allTokens "token3" "env3").Value |> should equal "value9"
+        [<Test>]
+        let ``duplicate tokens in global and project should report error`` () =
+            Assert.Fail("pending")
 
