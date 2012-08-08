@@ -13,6 +13,9 @@ module tokens =
     type MissingTokensException (message)=
         inherit Exception(message)
 
+    type DuplicateTokensException (message) =
+        inherit Exception(message)
+
     type token = {
         name : string
         envs : Map<string, string>
@@ -48,7 +51,13 @@ module tokens =
         | Some tok -> lookupValue env tok.envs token
 
     let combine (globalTokens : token list) (projectTokens : token list) =
-        List.concat [ globalTokens; projectTokens]
+        let allTokens = List.concat [ globalTokens; projectTokens]
+        let duplicateTokens = allTokens |> Seq.ofList |> Seq.countBy (fun token -> token.name) |> Seq.filter (fun count -> (snd count) > 1) |> Array.ofSeq
+        if (duplicateTokens.Length > 0) then
+            let message = String.Format("Duplicate tokens found in both global.tokens and application tokens! {0}{1}", 
+                            Environment.NewLine, String.Join(Environment.NewLine, duplicateTokens |> Array.map (fun count -> fst count)))
+            raise (new DuplicateTokensException(message))
+        allTokens
 
     [<TestFixture>] 
     module ``reading yaml files`` =
@@ -80,12 +89,15 @@ module tokens =
             tokenValue.Value |> should equal "defaultValue"
         [<Test>]
         let ``combining global and project tokens files should give a single collection`` () =
-            let projectTokens = read "./projectA/src/test.tokens.config" |> toTokens 
-            let globalTokens = read "./projectA/global.tokens" |> toTokens
+            let projectTokens = [ yield { name = "token1"; envs = ([ ("env1", "value1") ] |> Map.ofList) } ]
+            let globalTokens = [ yield { name = "token3"; envs = ([ ("env3", "value9") ] |> Map.ofList) } ]
             let allTokens = combine globalTokens projectTokens
             (lookup allTokens "token1" "env1").Value |> should equal "value1"
             (lookup allTokens "token3" "env3").Value |> should equal "value9"
         [<Test>]
         let ``duplicate tokens in global and project should report error`` () =
-            Assert.Fail("pending")
+            let projectTokens = [ yield { name = "token1"; envs = ([ ("env1", "value1") ] |> Map.ofList) } ]
+            let globalTokens = [ yield { name = "token1"; envs = ([ ("env3", "value9") ] |> Map.ofList) } ]
+            (fun () -> combine globalTokens projectTokens |> ignore ) |> should throw typeof<DuplicateTokensException>
+ 
 
