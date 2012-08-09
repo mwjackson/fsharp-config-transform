@@ -14,7 +14,7 @@ module configs =
         masterConfig: string
     }
 
-    let findConfigsInDir dir = 
+    let findMasterTokenPairs dir = 
         let masterConfigs = Directory.GetFiles(dir, "*.master.config", SearchOption.TopDirectoryOnly)
         let appTokens = Directory.GetFiles(dir, "*.tokens.config", SearchOption.TopDirectoryOnly)
         match (masterConfigs.Length, appTokens.Length) with
@@ -24,18 +24,24 @@ module configs =
         | (1, 1) -> Array.zip masterConfigs appTokens |> List.ofArray |> List.head |> Some
         | (_, _) -> raise (new ArgumentException(String.Format("Multiple Master/Token files in {0}", dir)))
 
+    let removeBinFolders (dir : string) =
+        dir.Contains("bin") = false
+
+    let toApplicationConfig globalTokens configPair =
+        { 
+            globalTokens = globalTokens;
+            masterConfig = fst configPair;
+            appTokens = snd configPair;
+        } : applicationConfig 
+
     let searchForConfigs directory = 
         let globalTokens = Directory.GetFiles(directory, "global.tokens", SearchOption.AllDirectories)
         if (globalTokens.Length = 0) then
             raise (new ArgumentException(String.Format("Could not find any global.tokens file in: {0}{1}", Environment.NewLine, directory)))
         Directory.GetDirectories(directory, "*", SearchOption.AllDirectories) |> List.ofArray
-            |> List.choose (fun dir -> findConfigsInDir dir)
-            |> List.map (fun config -> 
-                { 
-                    globalTokens = globalTokens.[0];
-                    masterConfig = fst config;
-                    appTokens = snd config;
-                } : applicationConfig)
+            |> List.filter removeBinFolders
+            |> List.choose findMasterTokenPairs
+            |> List.map (toApplicationConfig globalTokens.[0])
 
     [<TestFixture>] 
     module ``finding config files`` =
@@ -56,15 +62,17 @@ module configs =
             (fun () -> searchForConfigs @"c:\temp" |> ignore) |> should throw typeof<ArgumentException>
         [<Test>] 
         let ``searching a directory should return a tuple of master and tokens`` ()=
-            let configFiles = findConfigsInDir @".\projectA\src"
+            let configFiles = findMasterTokenPairs @".\projectA\src"
             configFiles.Value |> should equal (@".\projectA\src\test.master.config", @".\projectA\src\test.tokens.config")
         [<Test>] 
         let ``searching a directory with no configs should return an empty tuple`` ()=
-            let configFiles = findConfigsInDir @".\projectB"
+            let configFiles = findMasterTokenPairs @".\projectB"
             configFiles |> should equal None
         [<Test>] 
         let ``searching a directory with missing config pair should report error`` ()=
-            (fun () -> findConfigsInDir @".\projectC\src" |> ignore) |> should throw typeof<ArgumentException>
+            (fun () -> findMasterTokenPairs @".\projectC\srcC\" |> ignore) |> should throw typeof<ArgumentException>
         [<Test>] 
         let ``should ignore bin directories`` ()=
-            Assert.Fail("pending")
+            let configFiles = searchForConfigs ".\projectD" 
+            let containsBinInPaths = configFiles |> List.exists (fun config -> config.appTokens.Contains "bin" || config.masterConfig.Contains "bin" )
+            containsBinInPaths |> should equal false

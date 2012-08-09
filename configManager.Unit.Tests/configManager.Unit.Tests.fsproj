@@ -52,16 +52,24 @@
     <None Include="projectB\global.tokens">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="projectC\test.master.config">
+    <None Include="projectC\srcC\test.master.config">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="projectC\global.tokens">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="projectD\bin\test.master.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="projectD\bin\test.tokens.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="projectD\global.tokens">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="testFiles\config.yaml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-
     <None Include="packages.config" />
     <Compile Include="configs.fs" />
     <Compile Include="tokens.fs" />
