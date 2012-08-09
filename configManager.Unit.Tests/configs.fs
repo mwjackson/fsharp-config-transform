@@ -15,13 +15,13 @@ module configs =
     }
 
     let findMasterTokenPairs dir = 
-        let masterConfigs = Directory.GetFiles(dir, "*.master.config", SearchOption.TopDirectoryOnly)
-        let appTokens = Directory.GetFiles(dir, "*.tokens.config", SearchOption.TopDirectoryOnly)
+        let masterConfigs = Directory.GetFiles(dir, "*.master.config", SearchOption.TopDirectoryOnly) |> List.ofArray
+        let appTokens = Directory.GetFiles(dir, "*.tokens.config", SearchOption.TopDirectoryOnly) |> List.ofArray
         match (masterConfigs.Length, appTokens.Length) with
         | (0, 0) -> None
         | (1, 0) -> raise (new ArgumentException(String.Format("Missing Master/Token file pair in {0}", dir)))
         | (0, 1) -> raise (new ArgumentException(String.Format("Missing Master/Token file pair in {0}", dir)))
-        | (1, 1) -> Array.zip masterConfigs appTokens |> List.ofArray |> List.head |> Some
+        | (1, 1) -> List.zip masterConfigs appTokens |> List.head |> Some
         | (_, _) -> raise (new ArgumentException(String.Format("Multiple Master/Token files in {0}", dir)))
 
     let removeBinFolders (dir : string) =
