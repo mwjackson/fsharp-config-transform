@@ -18,7 +18,8 @@ module tokens =
         envs : Map<string, string>
         }
 
-    let read file =
+    let read (file : string) =
+        Console.WriteLine(String.Format("Reading YAML file: {0}", file))
         List.ofArray<YamlNode>(YamlNode.FromYamlFile(file)) 
         |> List.head<YamlNode> :?> YamlMapping
 

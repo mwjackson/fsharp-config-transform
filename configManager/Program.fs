@@ -6,20 +6,26 @@ open configure
 
 module Program =
 
-    let printUsage =
+    let printUsage () =
         Console.WriteLine(@"
-    Usage: 
-    Option 1 - configManager <searchDirectory> <environment>
-    Option 2 - configManager <environment>
-    Arguments:
-    <searchDirectory> - The root directory to begin recursive search for configs (defaults to '.' if not supplied)
-    <environment> - The environment to configure the files for")
+Usage: 
+Option 1 - configManager <searchDirectory> <environment>
+Option 2 - configManager <environment>
+Arguments:
+<searchDirectory> - The root directory to begin recursive search for configs (defaults to '.' if not supplied)
+<environment> - The environment to configure the files for") 
     
+    [<EntryPoint>]
     let main(args : string[]) = 
+        Console.WriteLine("Arguments:")
         args |> Array.iter (fun arg -> Console.WriteLine(arg))
-        match (args.Length) with
-        | 0 -> printUsage
-        | 1 -> configureSolutionFor "." args.[0] 
-        | 2 -> configureSolutionFor args.[0] args.[1]
-        | _ -> printUsage
-        0
+        try
+            match (args.Length) with
+            | 0 -> printUsage()
+            | 1 -> configureSolutionFor "." args.[0] 
+            | 2 -> configureSolutionFor args.[0] args.[1]
+            | _ -> printUsage()
+            0
+        with ex ->
+            Console.WriteLine ex
+            1
