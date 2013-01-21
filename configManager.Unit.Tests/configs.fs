@@ -14,7 +14,7 @@ module configs =
         [<Test>] 
         let ``should find tokens file`` ()=
             let applicationConfig = searchForConfigs ".\projectA" |> List.head
-            applicationConfig.appTokens |> should equal @".\projectA\src\test.tokens.config"
+            applicationConfig.appTokens.Value |> should equal @".\projectA\src\test.tokens.config"
         [<Test>] 
         let ``should find master file`` ()=
             let applicationConfig = searchForConfigs ".\projectA" |> List.head
@@ -25,20 +25,21 @@ module configs =
             applicationConfig.globalTokens |> should equal @".\projectA\global.tokens"
         [<Test>] 
         let ``missing global tokens file should report an error`` ()=
-            (fun () -> searchForConfigs @"c:\temp" |> ignore) |> should throw typeof<ArgumentException>
+            (fun () -> searchForConfigs @"c:\inetpub\wwwroot" |> ignore) |> should throw typeof<ArgumentException>
         [<Test>] 
         let ``searching a directory should return a tuple of master and tokens`` ()=
             let configFiles = findMasterTokenPairs @".\projectA\src"
-            configFiles.Value |> should equal (@".\projectA\src\test.master.config", @".\projectA\src\test.tokens.config")
+            configFiles.Value |> should equal (@".\projectA\src\test.master.config", Some(@".\projectA\src\test.tokens.config"))
         [<Test>] 
         let ``searching a directory with no configs should return an empty tuple`` ()=
             let configFiles = findMasterTokenPairs @".\projectB"
             configFiles |> should equal None
         [<Test>] 
-        let ``searching a directory with missing config pair should report error`` ()=
-            (fun () -> findMasterTokenPairs @".\projectC\srcC\" |> ignore) |> should throw typeof<ArgumentException>
+        let ``searching a directory with missing tokens file should return optional`` ()=
+            let pairs = findMasterTokenPairs @".\projectC\srcC\"
+            snd pairs.Value |> should equal None
         [<Test>] 
         let ``should ignore bin directories`` ()=
             let configFiles = searchForConfigs ".\projectD" 
-            let containsBinInPaths = configFiles |> List.exists (fun config -> config.appTokens.Contains "bin" || config.masterConfig.Contains "bin" )
+            let containsBinInPaths = configFiles |> List.exists (fun config -> config.appTokens.Value.Contains "bin" || config.masterConfig.Contains "bin" )
             containsBinInPaths |> should equal false

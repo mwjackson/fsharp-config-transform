@@ -11,7 +11,7 @@ module tokens =
 
     [<TestFixture>] 
     module ``reading yaml files`` =
-        let yamlConfig = read("./testFiles/config.yaml")
+        let yamlConfig = read(Some("./testFiles/config.yaml"))
 
         [<Test>] 
         let ``should parse root property of a yaml file`` ()=
@@ -24,9 +24,9 @@ module tokens =
         [<Test>]
         let ``should convert yamldocument to digestable format`` ()=
             let tokens = toTokens yamlConfig
-            let firstToken = (Seq.head tokens)
-            firstToken.name |> should equal "token2"
-            firstToken.envs |> Map.find "env2" |> should equal "value5"
+            let firstToken = tokens |> Seq.sort |> Seq.head 
+            firstToken.name |> should equal "token1"
+            firstToken.envs |> Map.find "env2" |> should equal "value2"
         [<Test>]
         let ``should be able to look up token easily`` () =
             let tokens = toTokens yamlConfig

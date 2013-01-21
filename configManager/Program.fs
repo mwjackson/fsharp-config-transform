@@ -11,9 +11,11 @@ module Program =
 Usage: 
 Option 1 - configManager <searchDirectory> <environment>
 Option 2 - configManager <environment>
+Option 3 - configManager all
 Arguments:
 <searchDirectory> - The root directory to begin recursive search for configs (defaults to '.' if not supplied)
-<environment> - The environment to configure the files for") 
+<environment> - The environment to configure the files for
+all - Create a config for each environment (local, dev, sit, uat, prod)") 
     
     [<EntryPoint>]
     let main(args : string[]) = 

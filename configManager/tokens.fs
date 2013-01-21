@@ -18,10 +18,15 @@ module tokens =
         envs : Map<string, string>
         }
 
-    let read (file : string) =
+    let read (file : string option) =
         Console.WriteLine(String.Format("Reading YAML file: {0}", file))
-        List.ofArray<YamlNode>(YamlNode.FromYamlFile(file)) 
-        |> List.head<YamlNode> :?> YamlMapping
+        if (file.IsNone) then
+            new YamlMapping()
+        else if (not(File.Exists file.Value)) then
+            new YamlMapping()
+        else
+            List.ofArray<YamlNode>(YamlNode.FromYamlFile(file.Value)) 
+            |> List.head<YamlNode> :?> YamlMapping
 
     let toTokens (yamlDoc : YamlMapping) =
         [
